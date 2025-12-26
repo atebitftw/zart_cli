@@ -436,9 +436,10 @@ packages:
   zart:
     dependency: "direct main"
     description:
-      path: "e:/dev/projects/zart"
-      relative: false
-    source: path
-    version: "1.9.3+4"
+      name: zart
+      sha256: "57f4554056e49b551f419b754d9dd477deba5fd4518fbdbd1fb2f301e5b06bb3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.9.3"
 sdks:
   dart: ">=3.10.4 <4.0.0"

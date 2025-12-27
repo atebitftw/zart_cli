@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:zart/zart.dart';
+import 'package:zart/zart.dart' show GameRunner, GameRunnerException;
 import 'package:zart_cli/src/cli_platform_provider.dart';
 
 // Zart CLI - A terminal-based player for Z-Machine and Inform games.

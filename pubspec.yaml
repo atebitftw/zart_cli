@@ -14,7 +14,7 @@ executables:
 dependencies:
   dart_console:
   logging: 
-  zart:
+  zart: ^2.0.0
   # zart:
   #   path: "e:/dev/projects/zart"
 dev_dependencies:

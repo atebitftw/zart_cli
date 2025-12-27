@@ -18,7 +18,7 @@ You will need the Flutter/Dart SDK installed on your system to use the CLI playe
 You can then install the `zart` CLI player and run it to play games from the command line:
 
 ```bash
-> dart pub global activate zart
+> dart pub global activate --source git git@github.com:atebitftw/zart_cli.git
 > zart minizork.z3
 ```
 

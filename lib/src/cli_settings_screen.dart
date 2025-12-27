@@ -181,7 +181,8 @@ class CliSettingsScreen {
         // Cancel input on Escape
         stdout.write('\n');
         return '';
-      } else if (key.char.isNotEmpty && key.controlChar == ControlCharacter.none) {
+      } else if (key.char.isNotEmpty &&
+          key.controlChar == ControlCharacter.none) {
         buf.write(key.char);
         stdout.write(key.char);
       }
@@ -198,7 +199,10 @@ class CliSettingsScreen {
   ///
   /// The [onRerender] callback is called when returning to the game
   /// to refresh the game display.
-  Future<void> show({bool isGameStarted = false, void Function()? onRerender}) async {
+  Future<void> show({
+    bool isGameStarted = false,
+    void Function()? onRerender,
+  }) async {
     _detectTerminalSize();
 
     // We're already in alternate screen buffer from the game,
@@ -269,12 +273,17 @@ class CliSettingsScreen {
     _write('ZART BAR\n');
     _resetColors();
 
-    _write('[V] Visibility: ${cliConfigManager.zartBarVisible ? 'ON' : 'OFF'}\n');
+    _write(
+      '[V] Visibility: ${cliConfigManager.zartBarVisible ? 'ON' : 'OFF'}\n',
+    );
     _write('[F] Foreground Color\n');
     _write('[B] Background Color\n');
 
     // Preview
-    _setColors(cliConfigManager.zartBarForeground, cliConfigManager.zartBarBackground);
+    _setColors(
+      cliConfigManager.zartBarForeground,
+      cliConfigManager.zartBarBackground,
+    );
     _write(' [ ZART BAR STYLE PREVIEW ] ');
     _resetColors();
 

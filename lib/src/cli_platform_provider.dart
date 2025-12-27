@@ -4,7 +4,8 @@ import 'dart:isolate';
 
 import 'package:dart_console/dart_console.dart';
 import 'package:zart/zart.dart';
-import 'package:zart_cli/src/cli_configuration_manager.dart' show cliConfigManager;
+import 'package:zart_cli/src/cli_configuration_manager.dart'
+    show cliConfigManager;
 import 'package:zart_cli/src/cli_renderer.dart';
 import 'package:zart_cli/src/cli_settings_screen.dart' show CliSettingsScreen;
 
@@ -110,8 +111,14 @@ class CliPlatformProvider extends PlatformProvider {
   }
 
   @override
-  Future<void> openSettings(dynamic terminal, {bool isGameStarted = false}) async {
-    await CliSettingsScreen().show(isGameStarted: isGameStarted, onRerender: () => _renderer.rerender());
+  Future<void> openSettings(
+    dynamic terminal, {
+    bool isGameStarted = false,
+  }) async {
+    await CliSettingsScreen().show(
+      isGameStarted: isGameStarted,
+      onRerender: () => _renderer.rerender(),
+    );
   }
 
   // ============================================================
@@ -137,11 +144,16 @@ class CliPlatformProvider extends PlatformProvider {
     }
 
     // Map control characters to input events
-    final ctrlName = key.controlChar != ControlCharacter.none ? key.controlChar.toString().split('.').last : null;
+    final ctrlName = key.controlChar != ControlCharacter.none
+        ? key.controlChar.toString().split('.').last
+        : null;
 
     // Check for macros first (except for Ctrl+C which is handled above)
     if (ctrlName != null && ctrlName.startsWith('ctrl')) {
-      final match = RegExp(r'ctrl([a-z])$', caseSensitive: false).matchAsPrefix(ctrlName);
+      final match = RegExp(
+        r'ctrl([a-z])$',
+        caseSensitive: false,
+      ).matchAsPrefix(ctrlName);
       if (match != null) {
         final letter = match.group(1)!.toLowerCase();
         final bindingKey = 'ctrl+$letter';
@@ -156,7 +168,10 @@ class CliPlatformProvider extends PlatformProvider {
       case ControlCharacter.enter:
         return const InputEvent.character('\n', specialKey: SpecialKey.enter);
       case ControlCharacter.backspace:
-        return const InputEvent.character('\x7F', specialKey: SpecialKey.delete);
+        return const InputEvent.character(
+          '\x7F',
+          specialKey: SpecialKey.delete,
+        );
       case ControlCharacter.arrowUp:
         return const InputEvent.specialKey(SpecialKey.arrowUp);
       case ControlCharacter.arrowDown:
@@ -196,7 +211,12 @@ class CliPlatformProvider extends PlatformProvider {
   }
 
   @override
-  ({Future<void> onKeyPressed, bool Function() wasPressed, void Function() cleanup}) setupAsyncKeyWait() {
+  ({
+    Future<void> onKeyPressed,
+    bool Function() wasPressed,
+    void Function() cleanup,
+  })
+  setupAsyncKeyWait() {
     var pressed = false;
     final completer = Completer<void>();
 
@@ -328,7 +348,10 @@ class CliPlatformProvider extends PlatformProvider {
     try {
       final f = File(filename);
       if (!f.existsSync()) {
-        _renderer.showTempMessage('QuickSave File Not Found ($filename)', seconds: 3);
+        _renderer.showTempMessage(
+          'QuickSave File Not Found ($filename)',
+          seconds: 3,
+        );
         return null;
       }
 

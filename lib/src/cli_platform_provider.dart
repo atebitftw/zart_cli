@@ -352,7 +352,7 @@ class CliPlatformProvider extends PlatformProvider {
 
   @override
   void onError(String message) {
-    stderr.writeln('Error: $message');
+    stderr.writeln('Zart Error: $message');
   }
 
   @override

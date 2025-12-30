@@ -147,6 +147,7 @@ class CliSettingsScreen {
     }
 
     // Map control characters to their expected values
+    if (key.controlChar == ControlCharacter.F1) return 'r';
     if (key.controlChar == ControlCharacter.enter) return '\n';
     if (key.controlChar == ControlCharacter.backspace) return '\x7F';
     if (key.controlChar == ControlCharacter.escape) return '\x1B';
@@ -258,11 +259,7 @@ class CliSettingsScreen {
     _resetColors();
 
     // Navigation
-    if (isGameStarted) {
-      _write('[R] Resume Game\n');
-    } else {
-      _write('[R] Start Game\n');
-    }
+    _write('[F1] or [R] To Return to Game\n');
 
     _write('\n');
     _write('-' * (_cols < 50 ? _cols : 50));
@@ -308,8 +305,6 @@ class CliSettingsScreen {
         _write('$key -> "$val"\n');
       });
     }
-
-    _write('\n[Esc] Exit Settings\n');
   }
 
   Future<void> _addBinding() async {

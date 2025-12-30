@@ -37,14 +37,10 @@ class CliPlatformProvider extends PlatformProvider {
     scrollCallback = callback;
   }
 
-  @override
-  void setQuickSaveFlag() => _isQuickSave = true;
-
-  @override
-  void setQuickRestoreFlag() => _isQuickRestore = true;
-
   /// Create a CLI platform provider.
-  CliPlatformProvider({required String gameName}) : _gameName = gameName;
+  CliPlatformProvider({required String gameName}) : _gameName = gameName {
+    _renderer = CliRenderer(this);
+  }
 
   final String _gameName;
 
@@ -53,7 +49,7 @@ class CliPlatformProvider extends PlatformProvider {
 
   @override
   void onInit(GameFileType fileType) {
-    _renderer = CliRenderer(this);
+    _renderer.isGameRunning = true; // Enable user's text color for game text
     cliConfigManager.load();
     _updateCapabilities();
   }
@@ -111,10 +107,7 @@ class CliPlatformProvider extends PlatformProvider {
   }
 
   @override
-  Future<void> openSettings(
-    dynamic terminal, {
-    bool isGameStarted = false,
-  }) async {
+  Future<void> openSettings({bool isGameStarted = false}) async {
     await CliSettingsScreen().show(
       isGameStarted: isGameStarted,
       onRerender: () => _renderer.rerender(),
@@ -124,12 +117,6 @@ class CliPlatformProvider extends PlatformProvider {
   // ============================================================
   // INPUT
   // ============================================================
-
-  @override
-  Future<String> readLine({int? maxLength, int? timeout}) async {
-    // TODO: Implement timeout support
-    return _renderer.readLine();
-  }
 
   @override
   Future<InputEvent> readInput({int? timeout}) async {
@@ -181,13 +168,17 @@ class CliPlatformProvider extends PlatformProvider {
       case ControlCharacter.arrowRight:
         return const InputEvent.specialKey(SpecialKey.arrowRight);
       case ControlCharacter.F1:
-        return const InputEvent.specialKey(SpecialKey.f1);
+        await openSettings(isGameStarted: true);
+        return const InputEvent.none();
       case ControlCharacter.F2:
-        return const InputEvent.specialKey(SpecialKey.f2);
+        _isQuickSave = true;
+        return InputEvent.macro('save');
       case ControlCharacter.F3:
-        return const InputEvent.specialKey(SpecialKey.f3);
+        _isQuickRestore = true;
+        return InputEvent.macro('restore');
       case ControlCharacter.F4:
-        return const InputEvent.specialKey(SpecialKey.f4);
+        _renderer.cycleTextColor();
+        return const InputEvent.none();
       case ControlCharacter.pageUp:
         scrollCallback?.call(5);
         return const InputEvent.none();
@@ -204,10 +195,31 @@ class CliPlatformProvider extends PlatformProvider {
     }
   }
 
-  @override
-  InputEvent? pollInput() {
-    // Terminal doesn't support non-blocking input easily
-    return null;
+  /// Reads a line of text input from the terminal.
+  ///
+  /// Calls [readInput] repeatedly until the Enter key is pressed,
+  /// accumulating characters and handling backspace. Returns the
+  /// entered string (without the trailing newline).
+  Future<String> readLine() async {
+    final buffer = StringBuffer();
+    while (true) {
+      final event = await readInput();
+      if (event.specialKey == SpecialKey.enter) {
+        stdout.writeln();
+        return buffer.toString();
+      } else if (event.specialKey == SpecialKey.delete) {
+        // Handle backspace
+        if (buffer.isNotEmpty) {
+          final str = buffer.toString();
+          buffer.clear();
+          buffer.write(str.substring(0, str.length - 1));
+          stdout.write('\b \b'); // Erase character on screen
+        }
+      } else if (event.character != null && event.character!.isNotEmpty) {
+        buffer.write(event.character);
+        stdout.write(event.character);
+      }
+    }
   }
 
   @override
@@ -318,58 +330,13 @@ class CliPlatformProvider extends PlatformProvider {
     }
   }
 
-  @override
-  Future<String?> quickSave(List<int> data) async {
-    String base = gameName.split(RegExp(r'[/\\]')).last;
-    if (base.contains('.')) {
-      base = base.substring(0, base.lastIndexOf('.'));
-    }
-    String filename = 'quick_save_$base.sav';
-
-    try {
-      final f = File(filename);
-      f.writeAsBytesSync(data);
-      _renderer.showTempMessage('Game saved to $filename');
-      return filename;
-    } catch (e) {
-      onError('QuickSave failed: $e');
-      return null;
-    }
-  }
-
-  @override
-  Future<List<int>?> quickRestore() async {
-    String base = gameName.split(RegExp(r'[/\\]')).last;
-    if (base.contains('.')) {
-      base = base.substring(0, base.lastIndexOf('.'));
-    }
-    String filename = 'quick_save_$base.sav';
-
-    try {
-      final f = File(filename);
-      if (!f.existsSync()) {
-        _renderer.showTempMessage(
-          'QuickSave File Not Found ($filename)',
-          seconds: 3,
-        );
-        return null;
-      }
-
-      final data = f.readAsBytesSync();
-      _renderer.showTempMessage('Game restored from $filename', seconds: 3);
-      return data;
-    } catch (e) {
-      onError('QuickRestore failed: $e');
-      return null;
-    }
-  }
-
   // ============================================================
   // LIFECYCLE
   // ============================================================
 
   @override
   void onQuit() {
+    _renderer.isGameRunning = false;
     // Nothing special to do
   }
 

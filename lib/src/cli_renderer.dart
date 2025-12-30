@@ -41,44 +41,13 @@ class CliRenderer {
 
   int get screenHeight => _rows;
 
-  /// Zart bar foreground color (Z-machine color code).
-  int get zartBarForeground => cliConfigManager.zartBarForeground;
-
-  /// Zart bar background color (Z-machine color code).
-  int get zartBarBackground => cliConfigManager.zartBarBackground;
+  /// Whether the game is currently running (vs title screen).
+  /// When true, the user's text color preference is applied to game text.
+  bool isGameRunning = false;
 
   /// Temporary status message.
   String? _tempMessage;
   DateTime? _tempMessageExpiry;
-
-  /// Input queue for injected commands (e.g. quicksave).
-  final List<String> _inputQueue = [];
-
-  /// Push text into the input queue to be processed as terminal input.
-  void pushInput(String text) {
-    _inputQueue.add(text);
-  }
-
-  String _popQueueLine() {
-    if (_inputQueue.isEmpty) return '';
-    final input = _inputQueue.removeAt(0);
-    return input.endsWith('\n') ? input.substring(0, input.length - 1) : input;
-  }
-
-  String _popQueueChar() {
-    if (_inputQueue.isEmpty) return '';
-    final input = _inputQueue[0];
-    if (input.isEmpty) {
-      _inputQueue.removeAt(0);
-      return _popQueueChar();
-    }
-    final char = input[0];
-    _inputQueue[0] = input.substring(1);
-    if (_inputQueue[0].isEmpty) {
-      _inputQueue.removeAt(0);
-    }
-    return char;
-  }
 
   /// Detect terminal size and update screen dimensions.
   CliRenderer(this.cliPlatformProvider) {
@@ -164,13 +133,26 @@ class CliRenderer {
     }
   }
 
+  /// Cycle the default text color through available options.
+  ///
+  /// Colors cycle through 1-9 (default, black, red, green, yellow,
+  /// blue, magenta, cyan, white), skipping black (2) to avoid invisible text.
+  void cycleTextColor() {
+    var next = (cliConfigManager.textColor % 9) + 1;
+    if (next == 2) next = 3; // Skip black
+    cliConfigManager.textColor = next;
+    cliConfigManager.save();
+    rerender();
+  }
+
   String _renderRow(List<RenderCell> cells, int rowIndex) {
     final buf = StringBuffer();
     buf.write('\x1B[${rowIndex + 1};1H'); // Position cursor
     buf.write('\x1B[K'); // Clear line
 
-    int? lastFg;
-    int? lastBg;
+    // Use -1 as sentinel so first cell always triggers style application
+    int lastFg = -1;
+    int lastBg = -1;
     bool lastBold = false;
     bool lastItalic = false;
     bool lastReverse = false;
@@ -184,9 +166,15 @@ class CliRenderer {
           cell.reverse != lastReverse) {
         buf.write('\x1B[0m'); // Reset
 
-        // Apply foreground color
+        // Apply foreground color (use configured default if not specified)
+        // Only apply user's text color preference when the game is running
+        // and the cell is not reversed (to preserve status bar styling)
         if (cell.fgColor != null) {
           buf.write(_rgbToFgAnsi(cell.fgColor!));
+        } else if (isGameRunning && !cell.reverse) {
+          buf.write(_zColorToFgAnsi(cliConfigManager.textColor));
+        } else {
+          buf.write('\x1B[39m'); // Default foreground
         }
 
         // Apply background color
@@ -199,8 +187,8 @@ class CliRenderer {
         if (cell.italic) buf.write('\x1B[3m');
         if (cell.reverse) buf.write('\x1B[7m');
 
-        lastFg = cell.fgColor;
-        lastBg = cell.bgColor;
+        lastFg = cell.fgColor ?? -1;
+        lastBg = cell.bgColor ?? -1;
         lastBold = cell.bold;
         lastItalic = cell.italic;
         lastReverse = cell.reverse;
@@ -306,126 +294,4 @@ class CliRenderer {
         return '';
     }
   }
-
-  /// Read a line of input from the terminal.
-  Future<String> readLine() async {
-    if (_inputQueue.isNotEmpty) return _popQueueLine();
-    stdout.write('\x1B[?25h'); // Show cursor
-    final buf = StringBuffer();
-
-    while (true) {
-      final key = _console.readKey();
-
-      // Handle regular keys
-      if (key.controlChar == ControlCharacter.enter) {
-        stdout.write('\n');
-        break;
-      } else if (key.controlChar == ControlCharacter.backspace) {
-        if (buf.length > 0) {
-          final str = buf.toString();
-          buf.clear();
-          buf.write(str.substring(0, str.length - 1));
-          stdout.write('\b \b');
-        }
-      } else if (key.controlChar == ControlCharacter.ctrlC) {
-        exitFullScreen();
-        exit(0);
-      } else if (key.controlChar == ControlCharacter.F1) {
-        if (onOpenSettings != null) {
-          await onOpenSettings!();
-          rerender();
-        }
-      } else if (key.controlChar == ControlCharacter.F2) {
-        onQuickSave?.call();
-        if (_inputQueue.isNotEmpty) return _popQueueLine();
-      } else if (key.controlChar == ControlCharacter.F3) {
-        onQuickLoad?.call();
-        if (_inputQueue.isNotEmpty) return _popQueueLine();
-      } else if (key.controlChar == ControlCharacter.F4) {
-        if (onCycleTextColor != null) {
-          onCycleTextColor!();
-          rerender();
-        }
-      } else if (key.controlChar == ControlCharacter.pageUp) {
-        // Scroll up (back in history)
-        //this should call the scroll callback in the CliPlatformProvider
-        cliPlatformProvider.scrollCallback?.call(5);
-        rerender();
-      } else if (key.controlChar == ControlCharacter.pageDown) {
-        // Scroll down (toward current)
-        //this should call the scroll callback in the CliPlatformProvider
-        cliPlatformProvider.scrollCallback?.call(-5);
-        rerender();
-      } else if (key.controlChar.toString().contains('.ctrl') &&
-          key.controlChar != ControlCharacter.ctrlC) {
-        // Handle Ctrl+Key Macros
-        final s = key.controlChar.toString();
-        // Handle both ControlCharacter.ctrlA and ctrlA formats
-        final match = RegExp(
-          r'ctrl([a-z])$',
-          caseSensitive: false,
-        ).firstMatch(s);
-        if (match != null) {
-          final letter = match.group(1)!.toLowerCase();
-          final bindingKey = 'ctrl+$letter';
-
-          final cmd = cliConfigManager.getBinding(bindingKey);
-          if (cmd != null) {
-            buf.write(cmd);
-            stdout.write('$cmd\n');
-            return buf.toString();
-          }
-        }
-      } else if (key.char.isNotEmpty &&
-          key.controlChar == ControlCharacter.none) {
-        buf.write(key.char);
-        stdout.write(key.char);
-      }
-    }
-
-    stdout.write('\x1B[?25l'); // Hide cursor
-    return buf.toString();
-  }
-
-  /// Read a single character from the terminal.
-  Future<String> readChar() async {
-    if (_inputQueue.isNotEmpty) return _popQueueChar();
-    stdout.write('\x1B[?25h'); // Show cursor
-    final key = _console.readKey();
-    stdout.write('\x1B[?25l'); // Hide cursor
-
-    if (key.controlChar == ControlCharacter.ctrlC) {
-      exitFullScreen();
-      exit(0);
-    }
-
-    // Map control characters to their expected values
-    if (key.controlChar == ControlCharacter.enter) return '\n';
-    if (key.controlChar == ControlCharacter.backspace) return '\x7F';
-    if (key.controlChar == ControlCharacter.arrowUp) return '\x81';
-    if (key.controlChar == ControlCharacter.arrowDown) return '\x82';
-    if (key.controlChar == ControlCharacter.arrowLeft) return '\x83';
-    if (key.controlChar == ControlCharacter.arrowRight) return '\x84';
-
-    return key.char.isNotEmpty ? key.char : '';
-  }
-
-  /// Check if a function key was pressed and return its number (1-12), or null.
-  int? checkFunctionKey(Key key) {
-    switch (key.controlChar) {
-      case ControlCharacter.F1:
-        return 1;
-      case ControlCharacter.F2:
-        return 2;
-      case ControlCharacter.F3:
-        return 3;
-      case ControlCharacter.F4:
-        return 4;
-      default:
-        return null;
-    }
-  }
-
-  /// Read a raw key from the terminal.
-  Key readKey() => _console.readKey();
 }

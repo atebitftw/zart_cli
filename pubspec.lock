@@ -437,9 +437,9 @@ packages:
     dependency: "direct main"
     description:
       name: zart
-      sha256: "55a5e6f93778cc482f854cc6ecfbcb1cbbd2c15cfe8119fbb58538cd49b918ff"
+      sha256: "2c7f1933d515deaa703f7c70a4118919551187d722d00180f190e52fc5132091"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.4"
+    version: "2.0.5"
 sdks:
   dart: ">=3.10.4 <4.0.0"
